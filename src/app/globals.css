@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+    /* Main Canvas Colors */
+    --color-brand-bg: #FFFFFF;
+    --color-brand-text: #0F172A;      /* Deep Midnight (more modern than pure black) */
+    --color-brand-surface: #F8FAFC;   /* Very light blue-gray for sections */
+
+    /* The Energy Colors */
+    --color-brand-accent: #2563EB;     /* Electric Blue - The 'Action' color */
+    --color-brand-accent-light: #DBEAFE;
+    --color-brand-price: #059669;      /* Emerald Green - The 'Money' color */
+    --color-brand-sale: #EF4444;       /* Vibrant Red - The 'Urgency' color */
+
+    /* Typography */
+    --font-display: "Inter", "Helvetica Neue", sans-serif;
+}
+
+/* Global Reset */
+body {
+    background-color: var(--color-brand-bg);
+    color: var(--color-brand-text);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Colorful Selection (When you highlight text) */
+::selection {
+    background-color: var(--color-brand-accent);
+    color: white;
+}
+
+/* Modern Colorful Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-brand-surface);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-brand-accent);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #1D4ED8; /* Slightly darker blue */
+}
