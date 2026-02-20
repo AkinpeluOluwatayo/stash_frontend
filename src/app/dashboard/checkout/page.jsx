@@ -8,7 +8,7 @@ import axios from 'axios';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { stash, clearStash } = useStashStore(); // Assuming you have a clear method
+    const { stash } = useStashStore();
 
     const [address, setAddress] = useState({
         name: '', street: '', city: '', state: '', zip: '', country: 'US'
@@ -58,38 +58,30 @@ export default function CheckoutPage() {
     const subtotal = stash.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
     const total = subtotal + (selectedRate ? parseFloat(selectedRate.amount) : 0);
 
-    // --- NEW CHECKOUT LOGIC ---
+    // --- INTEGRATED STRIPE CHECKOUT LOGIC ---
     const handleCheckout = async () => {
         if (!selectedRate) return;
 
         setIsProcessing(true);
         try {
-            // 1. Prepare Order Data
-            const orderData = {
+            // 1. Call your Stripe API route (ensure this is in src/app/api/checkout/route.js)
+            const response = await axios.post('/stripeApi/checkout', {
                 items: stash,
-                shippingAddress: address,
-                shippingMethod: selectedRate.servicelevel.name,
                 shippingCost: selectedRate.amount,
-                totalAmount: total,
-            };
+                addressTo: address // Optional: send address to Stripe for logging
+            });
 
-            console.log("Finalizing Order:", orderData);
-
-            // 2. Here you would typically call your backend to create a
-            // Stripe or Paystack checkout session.
-            // const { data } = await axios.post('/api/checkout/session', orderData);
-            // window.location.href = data.url;
-
-            // FOR NOW: Simulate success
-            setTimeout(() => {
-                alert("Order confirmed! Redirecting to payment...");
-                // clearStash(); // Clear cart after successful checkout
-                // router.push('/dashboard/success');
-                setIsProcessing(false);
-            }, 1500);
+            // 2. Redirect to Stripe's hosted checkout page
+            if (response.data.url) {
+                window.location.href = response.data.url;
+            } else {
+                throw new Error("No checkout URL received from server");
+            }
 
         } catch (error) {
-            console.error("Checkout failed:", error);
+            console.error("Stripe Integration Error:", error);
+            alert("Payment initialization failed. Ensure you have 'stripe' installed and API keys set.");
+        } finally {
             setIsProcessing(false);
         }
     };
@@ -99,6 +91,7 @@ export default function CheckoutPage() {
             <DashboardNavbar />
             <main className="flex-grow max-w-6xl mx-auto w-full p-6 md:p-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                    {/* Left Side: Shipping Form */}
                     <div className="lg:col-span-7 space-y-10">
                         <div className="flex justify-between items-end">
                             <h1 className="text-3xl font-black uppercase text-slate-900">Shipping.</h1>
@@ -121,7 +114,7 @@ export default function CheckoutPage() {
                         </div>
 
                         <div className="pt-6">
-                            <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4">Select Shipping</h3>
+                            <h3 className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Select Shipping</h3>
                             {loadingRates ? (
                                 <div className="p-10 bg-slate-50 rounded-2xl animate-pulse text-center font-bold text-[10px]">FETCHING RATES...</div>
                             ) : rates.length > 0 ? (
@@ -138,11 +131,12 @@ export default function CheckoutPage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-10 border-2 border-dashed rounded-2xl text-center text-[10px] text-slate-300">ENTER ZIP FOR RATES</div>
+                                <div className="p-10 border-2 border-dashed rounded-2xl text-center text-[10px] text-slate-300 uppercase font-black">ENTER ZIP FOR RATES</div>
                             )}
                         </div>
                     </div>
 
+                    {/* Right Side: Order Summary Card */}
                     <div className="lg:col-span-5">
                         <div className="bg-[#0a192f] rounded-[2.5rem] p-8 text-white sticky top-24 shadow-2xl">
                             <h2 className="text-[10px] font-black uppercase opacity-30 mb-8 tracking-widest">Order Summary</h2>
@@ -168,7 +162,7 @@ export default function CheckoutPage() {
                                 disabled={!selectedRate || isProcessing}
                                 className="w-full bg-emerald-500 text-slate-900 py-5 rounded-2xl mt-8 font-black uppercase text-[10px] tracking-[0.2em] hover:bg-white transition-all disabled:opacity-20 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
                             >
-                                {isProcessing ? 'Processing...' : 'Complete Purchase'}
+                                {isProcessing ? 'Redirecting to Stripe...' : 'Complete Purchase'}
                             </button>
 
                             {!selectedRate && !loadingRates && (
@@ -185,6 +179,7 @@ export default function CheckoutPage() {
     );
 }
 
+// Input Component
 function Input({ label, value, onChange }) {
     return (
         <div className="flex flex-col gap-1">
