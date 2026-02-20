@@ -58,29 +58,27 @@ export default function CheckoutPage() {
     const subtotal = stash.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
     const total = subtotal + (selectedRate ? parseFloat(selectedRate.amount) : 0);
 
-    // --- INTEGRATED STRIPE CHECKOUT LOGIC ---
     const handleCheckout = async () => {
         if (!selectedRate) return;
 
         setIsProcessing(true);
         try {
-            // 1. Call your Stripe API route (ensure this is in src/app/api/checkout/route.js)
             const response = await axios.post('/stripeApi/checkout', {
                 items: stash,
                 shippingCost: selectedRate.amount,
-                addressTo: address // Optional: send address to Stripe for logging
+                addressTo: address
             });
 
-            // 2. Redirect to Stripe's hosted checkout page
             if (response.data.url) {
                 window.location.href = response.data.url;
             } else {
-                throw new Error("No checkout URL received from server");
+                throw new Error(response.data.error || "No checkout URL received");
             }
 
         } catch (error) {
-            console.error("Stripe Integration Error:", error);
-            alert("Payment initialization failed. Ensure you have 'stripe' installed and API keys set.");
+            const errorMsg = error.response?.data?.error || error.message;
+            console.error("Stripe Integration Error:", errorMsg);
+            alert(`Payment failed: ${errorMsg}`);
         } finally {
             setIsProcessing(false);
         }
@@ -91,7 +89,6 @@ export default function CheckoutPage() {
             <DashboardNavbar />
             <main className="flex-grow max-w-6xl mx-auto w-full p-6 md:p-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    {/* Left Side: Shipping Form */}
                     <div className="lg:col-span-7 space-y-10">
                         <div className="flex justify-between items-end">
                             <h1 className="text-3xl font-black uppercase text-slate-900">Shipping.</h1>
@@ -136,7 +133,6 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
-                    {/* Right Side: Order Summary Card */}
                     <div className="lg:col-span-5">
                         <div className="bg-[#0a192f] rounded-[2.5rem] p-8 text-white sticky top-24 shadow-2xl">
                             <h2 className="text-[10px] font-black uppercase opacity-30 mb-8 tracking-widest">Order Summary</h2>
@@ -164,12 +160,6 @@ export default function CheckoutPage() {
                             >
                                 {isProcessing ? 'Redirecting to Stripe...' : 'Complete Purchase'}
                             </button>
-
-                            {!selectedRate && !loadingRates && (
-                                <p className="text-[8px] text-center mt-4 uppercase font-bold text-white/30 tracking-widest italic">
-                                    Please select shipping to continue
-                                </p>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -179,7 +169,6 @@ export default function CheckoutPage() {
     );
 }
 
-// Input Component
 function Input({ label, value, onChange }) {
     return (
         <div className="flex flex-col gap-1">

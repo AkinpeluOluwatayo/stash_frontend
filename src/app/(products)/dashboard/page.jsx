@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import Image from 'next/image';
-import { VirtuosoGrid } from 'react-virtuoso'; // 1. Import Virtuoso
+import { VirtuosoGrid } from 'react-virtuoso';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { productService } from '@/app/(products)/services/ProductApi';
@@ -9,84 +9,83 @@ import { useStashStore } from '@/store/CartStore';
 import DashboardNavbar from '@/app/(products)/components/navbar';
 import Footer from "@/components/footer";
 
+function ProductCard({ product }) {
+    const addToStash = useStashStore((state) => state.addToStash);
+    return (
+        <div className="flex flex-col group w-full">
+            <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 mb-2 border border-slate-100 transition-all duration-500 hover:shadow-md">
+                {product.imageUrl ? (
+                    <Image src={product.imageUrl} alt={product.title || "Product"} fill unoptimized className="object-cover group-hover:scale-105 transition-transform duration-700" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-50 text-[6px] font-black text-slate-300">NULL</div>
+                )}
+            </div>
+            <div className="px-0.5 mb-2 leading-tight">
+                <span className="text-[7px] font-black text-emerald-600 uppercase tracking-widest">{product.sellerId?.substring(0, 5) || "STASH"}</span>
+                <h3 className="text-[10px] font-black text-slate-900 uppercase truncate">{product.title || "Untitled"}</h3>
+                <span className="text-xs font-black text-slate-900">${Number(product.price).toLocaleString()}</span>
+            </div>
+            <button onClick={() => addToStash(product)} className="w-full border border-slate-200 py-1.5 rounded-md text-[8px] font-black uppercase text-slate-800 hover:bg-emerald-500 transition-all">
+                Add to Stash
+            </button>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
     const searchParams = useSearchParams();
     const searchTerm = searchParams.get('search')?.toLowerCase() || "";
 
-    const {
-        data: products,
-        isLoading,
-        isError,
-    } = useQuery({
+    const { data: products, isLoading, isError } = useQuery({
         queryKey: ['products'],
-        queryFn: () => productService.getAllProducts(0, 100), // Increased to 100 since Virtuoso handles it easily
+        queryFn: () => productService.getAllProducts(0, 100), // Start with 100
         staleTime: 1000 * 60 * 5,
     });
 
-    const filteredProducts = products?.filter((product) => {
-        const titleMatch = product.title?.toLowerCase().includes(searchTerm);
-        const sellerMatch = product.sellerId?.toLowerCase().includes(searchTerm);
-        return titleMatch || sellerMatch;
-    }) || [];
+    const filteredProducts = products?.filter((p) =>
+        p.title?.toLowerCase().includes(searchTerm) || p.sellerId?.toLowerCase().includes(searchTerm)
+    ) || [];
 
     return (
+        // Remove 'overflow-hidden' from here so the page can scroll normally
         <div className="min-h-screen flex flex-col bg-white">
             <DashboardNavbar />
 
-            {/* main needs to be flex-grow for footer positioning */}
-            <main className="flex-grow flex flex-col max-w-[1800px] mx-auto w-full">
+            <main className="flex-grow w-full max-w-[1800px] mx-auto">
                 <header className="pt-6 pb-2 px-4 md:px-8">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span>
                         <h2 className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">Discovery</h2>
                     </div>
-                    <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase leading-none text-slate-900">
+                    <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase text-slate-900">
                         {searchTerm ? `Search: ${searchTerm}` : "Market."}
                     </h1>
                 </header>
 
-                {/* 1. LOADING STATE */}
-                {isLoading && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-4 p-4 md:p-8">
-                        {[...Array(21)].map((_, i) => (
-                            <div key={i} className="animate-pulse space-y-2">
-                                <div className="aspect-[4/5] bg-slate-100 rounded-xl" />
-                                <div className="h-2 bg-slate-100 w-3/4 rounded mx-1" />
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* 2. VIRTUOSO GRID */}
                 {!isLoading && !isError && (
-                    <div className="flex-grow">
+                    <div className="w-full">
                         {filteredProducts.length > 0 ? (
                             <VirtuosoGrid
+                                // 1. Use standard window scroll so the footer naturally follows the content
                                 useWindowScroll
                                 data={filteredProducts}
-                                // Customizing the list and item wrappers to keep your Tailwind grid
+                                // 2. This prevents the "empty space" calculation error
+                                overshoot={200}
                                 components={{
                                     List: React.forwardRef(({ children, ...props }, ref) => (
                                         <div
                                             {...props}
                                             ref={ref}
-                                            className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-2 gap-y-8 md:gap-x-4 md:gap-y-12 p-4 md:p-8"
+                                            className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-2 gap-y-8 md:gap-x-4 md:gap-y-12 px-4 md:px-8 py-8"
                                         >
                                             {children}
                                         </div>
                                     )),
-                                    Item: ({ children, ...props }) => (
-                                        <div {...props} className="flex flex-col">
-                                            {children}
-                                        </div>
-                                    ),
                                 }}
-                                itemContent={(index, product) => (
-                                    <ProductCard key={product.id} product={product} />
-                                )}
+                                itemContent={(index, product) => <ProductCard product={product} />}
                             />
                         ) : (
-                            <div className="mx-4 md:mx-8 py-20 text-center border border-slate-100 rounded-3xl bg-slate-50/50">
+                            <div className="mx-4 py-20 text-center border border-slate-100 rounded-3xl bg-slate-50/50">
                                 <p className="text-slate-400 font-black uppercase text-[9px] tracking-[0.3em]">No matches.</p>
                             </div>
                         )}
@@ -94,61 +93,8 @@ export default function DashboardPage() {
                 )}
             </main>
 
+            {/* 3. Place footer outside the main grid, but within the normal document flow */}
             <Footer />
-        </div>
-    );
-}
-
-function ProductCard({ product }) {
-    const addToStash = useStashStore((state) => state.addToStash);
-
-    return (
-        <div className="flex flex-col group w-full">
-            {/* IMAGE CONTAINER */}
-            <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-slate-100 mb-2 border border-slate-100 transition-all duration-500 hover:shadow-md">
-                {product.imageUrl ? (
-                    <Image
-                        src={product.imageUrl}
-                        alt={product.title || "Product Image"}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 15vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-700"
-                        priority={false}
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-50 text-[6px] font-black text-slate-300">NULL</div>
-                )}
-
-                <div className="absolute top-1 right-1 z-10 bg-slate-900/90 backdrop-blur-sm text-white text-[6px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <span className="w-0.5 h-0.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                    LIVE
-                </div>
-            </div>
-
-            {/* TEXT DETAILS */}
-            <div className="px-0.5 mb-2">
-                <div className="flex flex-col leading-tight min-w-0">
-                    <span className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mb-0.5 truncate">
-                        {product.sellerId?.substring(0, 5) || "STASH"}
-                    </span>
-                    <h3 className="text-[10px] md:text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">
-                        {product.title || "Untitled"}
-                    </h3>
-                </div>
-                <div className="mt-0.5">
-                    <span className="text-xs md:text-sm font-black text-slate-900">
-                        ${Number(product.price).toLocaleString()}
-                    </span>
-                </div>
-            </div>
-
-            <button
-                onClick={() => addToStash(product)}
-                className="w-full border border-slate-200 py-1.5 rounded-md text-[8px] font-black uppercase tracking-tighter text-slate-800 hover:bg-emerald-500 hover:text-[#0a192f] hover:border-emerald-500 transition-all active:scale-[0.95] bg-white whitespace-nowrap overflow-hidden"
-            >
-                Add to Stash
-            </button>
         </div>
     );
 }

@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/store/middleware'; // Import your Zustand + Cookie store
+import { toast, Toaster } from 'sonner'; // 1. Import Sonner
+import { useAuthStore } from '@/store/middleware';
 
 // Google Icon Component
 const GoogleIcon = () => (
@@ -24,27 +25,25 @@ export default function LoginPage() {
 
     const router = useRouter();
     const searchParams = useSearchParams();
-    const setLogin = useAuthStore((state) => state.setLogin); // Auth store setter
+    const setLogin = useAuthStore((state) => state.setLogin);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    // Handle Google Login
     const handleGoogleLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `${window.location.origin}/auth/callback`,
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
-                }
             },
         });
-        if (error) alert(error.message);
+        if (error) {
+            toast.error('GOOGLE AUTH FAILED', {
+                className: 'font-black uppercase tracking-tighter italic border-2 border-red-500/20',
+            });
+        }
     };
 
-    // Mutation for Email/Password Login
     const loginMutation = useMutation({
         mutationFn: async ({ email, password }) => {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -52,19 +51,36 @@ export default function LoginPage() {
             return data;
         },
         onSuccess: (data) => {
-            // 1. Sync session to Zustand & Cookies so Middleware sees it
-            setLogin(data.user, data.session.access_token);
+            // 2. SUCCESS TOAST
+            toast.success('ACCESS GRANTED', {
+                description: 'Syncing your stash...',
+                className: 'font-black uppercase tracking-tighter italic border-2 border-emerald-500/20',
+            });
 
-            // 2. Redirect to 'redirect' param if it exists, otherwise dashboard
+            setLogin(data.user, data.session.access_token);
             const destination = searchParams.get('redirect') || '/dashboard';
-            router.push(destination);
-            router.refresh(); // Refresh to ensure middleware catches the new cookie
+
+            setTimeout(() => {
+                router.push(destination);
+                router.refresh();
+            }, 1000); // Small delay to let the toast be seen
+        },
+        onError: (error) => {
+            // 3. FAILED TOAST
+            toast.error('LOGIN FAILED', {
+                description: error.message || 'Invalid credentials.',
+                className: 'font-black uppercase tracking-tighter italic border-2 border-red-500/20',
+            });
         }
     });
 
     return (
         <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center px-6 py-12">
-            {/* Header / Logo */}
+            {/* 4. Toaster Config */}
+            <Toaster position="top-right" richColors toastOptions={{
+                style: { borderRadius: '0px', textTransform: 'uppercase' }
+            }} />
+
             <div className="absolute top-8 left-8">
                 <Link href="/">
                     <h1 className="text-2xl font-black italic tracking-tighter text-emerald-500 cursor-pointer">
@@ -73,7 +89,6 @@ export default function LoginPage() {
                 </Link>
             </div>
 
-            {/* Login Card */}
             <div className="w-full max-w-md bg-white p-8 md:p-12 rounded-[2rem] border border-slate-100 shadow-2xl shadow-slate-200/50">
                 <header className="text-center mb-10">
                     <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter italic text-slate-900 leading-none">
@@ -82,7 +97,6 @@ export default function LoginPage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-4">Enter your credentials to access your stash</p>
                 </header>
 
-                {/* SOCIAL LOGIN */}
                 <button
                     onClick={handleGoogleLogin}
                     className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-100 text-slate-900 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-50 transition-all active:scale-95 mb-8"
@@ -97,14 +111,6 @@ export default function LoginPage() {
                     <div className="h-px bg-slate-100 flex-grow"></div>
                 </div>
 
-                {/* ERROR FEEDBACK */}
-                {loginMutation.isError && (
-                    <div className="mb-6 p-4 text-[10px] font-bold uppercase tracking-widest rounded-xl border bg-red-50 border-red-100 text-red-500 text-center animate-shake">
-                        {loginMutation.error.message}
-                    </div>
-                )}
-
-                {/* LOGIN FORM */}
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -149,9 +155,6 @@ export default function LoginPage() {
     );
 }
 
-/**
- * Reusable Styled Input Component
- */
 function InputField({ label, type = "text", value, onChange, placeholder }) {
     return (
         <div className="space-y-2 group">

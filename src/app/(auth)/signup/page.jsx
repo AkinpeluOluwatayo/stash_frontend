@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
+import { toast, Toaster } from 'sonner';
 
 // Google Icon Component for reuse
 const GoogleIcon = () => (
@@ -49,11 +50,28 @@ export default function SignUpPage() {
             if (authError) throw authError;
             return authData;
         },
-        onSuccess: () => setStep(3)
+        onSuccess: () => {
+            toast.success('SIGNUP SUCCESSFUL', {
+                description: 'Verification email has been dispatched.',
+                className: 'font-black uppercase tracking-tighter italic border-2 border-emerald-500/20',
+            });
+            setStep(3);
+        },
+        onError: (error) => {
+            // ADDED: SIGNUP FAILED TOAST
+            toast.error('SIGNUP FAILED', {
+                description: error.message || 'Transmission interrupted. Try again.',
+                className: 'font-black uppercase tracking-tighter italic border-2 border-red-500/20',
+            });
+        }
     });
 
     return (
         <div className="min-h-screen bg-brand-surface text-brand-text flex flex-col items-center justify-center px-6 py-12">
+            <Toaster position="top-right" richColors toastOptions={{
+                style: { borderRadius: '0px', textTransform: 'uppercase' }
+            }} />
+
             <div className="absolute top-8 left-8">
                 <Link href="/"><h1 className="text-2xl font-black italic tracking-tighter text-brand-accent cursor-pointer">STASH.</h1></Link>
             </div>
@@ -70,6 +88,7 @@ export default function SignUpPage() {
                     </div>
                 )}
 
+                {/* Optional: You can keep this inline error or rely entirely on the Toast */}
                 {signupMutation.isError && (
                     <div className="mb-6 p-4 text-[10px] font-bold uppercase tracking-widest rounded-lg border bg-red-50 border-red-100 text-red-500 text-center">
                         {signupMutation.error.message}
